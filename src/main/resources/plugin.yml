@@ -1,0 +1,15 @@
+name: BettingPlus
+version: '${version}'
+main: me.notro.bettingplus.BettingPlus
+api-version: '1.20'
+authors: [Notro]
+description: A nice Betting Game
+
+commands:
+  bet:
+    aliases: b
+    description: Offer a bet versus another player.
+
+  cash:
+    aliases: c
+    description: Displays current cash of a player.
