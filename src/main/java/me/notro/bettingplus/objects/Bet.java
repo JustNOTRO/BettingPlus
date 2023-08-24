@@ -1,10 +1,15 @@
 package me.notro.bettingplus.objects;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
+
+import java.util.UUID;
 
 @Getter
-@Setter
+@AllArgsConstructor
 public class Bet {
-    private int requestedCash;
+
+    private final UUID requester;
+    private final UUID target;
+    private double requestedCash;
 }

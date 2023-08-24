@@ -1,8 +1,8 @@
 package me.notro.bettingplus.commands;
 
 import me.notro.bettingplus.BettingPlus;
+import me.notro.bettingplus.objects.Bet;
 import me.notro.bettingplus.utils.Message;
-import net.kyori.adventure.title.TitlePart;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -13,6 +13,8 @@ import org.jetbrains.annotations.NotNull;
 public class BetCommand implements CommandExecutor {
 
     private final BettingPlus plugin;
+
+    private Bet bet;
 
     public BetCommand(BettingPlus plugin) {
         this.plugin = plugin;
@@ -31,6 +33,11 @@ public class BetCommand implements CommandExecutor {
             return false;
         }
 
+        if (args.length == 0) {
+            player.sendMessage(Message.getPrefix().append(Message.fixColor("&cStates: /bet &7<offer/accept/deny> <player>")));
+            return false;
+        }
+
         switch (args[0].toLowerCase()) {
             case "offer" -> {
                 if (args.length < 3) {
@@ -46,24 +53,25 @@ public class BetCommand implements CommandExecutor {
                 }
 
                 try {
-                    int amount = Integer.parseInt(args[2]);
-                    plugin.getBet().setRequestedCash(amount);
+                    double amount = Double.parseDouble(args[2]);
+                    bet = new Bet(player.getUniqueId(), target.getUniqueId(), amount);
                 } catch (NumberFormatException exception) {
                     player.sendMessage(Message.getPrefix().append(Message.fixColor("&cAmount must be numeric&7.")));
                     return false;
                 }
 
-                if (plugin.getBettingManager().getCoins(player) < plugin.getBet().getRequestedCash()) {
+                if (plugin.getBettingManager().getCoins(player) < bet.getRequestedCash()) {
                     player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have enough cash to perform that bet&7.")));
                     return false;
                 }
 
-                if (plugin.getBet().getRequestedCash() <= 0) {
-                    player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou can only bet at the minimum cash of 1$&7.")));
+                if (bet.getRequestedCash() <= 0) {
+                    player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou can only bet at the minimum cash of 1.0$&7.")));
                     return false;
                 }
 
-                plugin.getBettingManager().requestBet(player, target);
+                plugin.getBettingManager().startExpiryCount(player, target);
+                plugin.getBettingManager().requestBet(player, target ,bet);
             }
 
             case "accept" -> {
@@ -79,36 +87,19 @@ public class BetCommand implements CommandExecutor {
                     return false;
                 }
 
-                if (!plugin.getBettingManager().hasRequests(target)) {
-                    target.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have any requests to accept&7.")));
+                if (!plugin.getBettingManager().hasRequests(player)) {
+                    player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have any requests to accept&7.")));
                     return false;
                 }
 
-                if (plugin.getBettingManager().getCoins(player) < plugin.getBet().getRequestedCash()) {
+                if (plugin.getBettingManager().getCoins(player) < bet.getRequestedCash()) {
                     player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have enough cash to perform that bet&7.")));
                     return false;
                 }
 
-                player.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have accepted a bet offer from &c" + target.getName() + "&7.")));
-                plugin.getBettingManager().removeCoins(player, plugin.getBet().getRequestedCash());
-                plugin.getBettingManager().removeCoins(target, plugin.getBet().getRequestedCash());
-
-                for (int i = 3; i >= 1; i--) {
-                    player.sendTitlePart(TitlePart.TITLE, Message.fixColor("&cStarting in:"));
-                    target.sendTitlePart(TitlePart.TITLE, Message.fixColor("&cStarting in:"));
-
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException exception) {
-                        throw new RuntimeException(exception);
-                    }
-
-                    player.sendTitlePart(TitlePart.SUBTITLE, Message.fixColor("&7" + i));
-                    target.sendTitlePart(TitlePart.SUBTITLE, Message.fixColor("&7" + i));
-                }
-
+                plugin.getBettingManager().getExpiryTask().cancel();
                 plugin.getBettingManager().removeRequest(player);
-                plugin.getBettingManager().randomWinner(player, target);
+                plugin.getBettingManager().startGame(player, target ,bet);
             }
 
             case "deny" -> {
@@ -124,9 +115,14 @@ public class BetCommand implements CommandExecutor {
                     return false;
                 }
 
+                if (!plugin.getBettingManager().hasRequests(player)) {
+                    player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have any requests to deny&7.")));
+                    return false;
+                }
+
                 plugin.getBettingManager().removeRequest(player);
-                player.sendMessage(Message.getPrefix().append(Message.fixColor("&c" + target.getName() + " &7denied your bet request.")));
-                target.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have denied bet request from &c" + player.getName() + "&7.")));
+                player.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have denied bet request from &c" + target.getName() + "&7.")));
+                target.sendMessage(Message.getPrefix().append(Message.fixColor("&c" + target.getName() + " &7denied your bet request.")));
             }
 
             default -> player.sendMessage(Message.getPrefix().append(Message.fixColor("&cStates: &7<offer/accept/deny>")));

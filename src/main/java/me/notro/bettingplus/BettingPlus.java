@@ -4,7 +4,6 @@ import lombok.Getter;
 import me.notro.bettingplus.commands.BetCommand;
 import me.notro.bettingplus.commands.CashCommand;
 import me.notro.bettingplus.managers.BettingManager;
-import me.notro.bettingplus.objects.Bet;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
@@ -13,7 +12,6 @@ public final class BettingPlus extends JavaPlugin {
     @Getter
     private static BettingPlus instance;
     private BettingManager bettingManager;
-    private Bet bet;
 
     @Override
     public void onEnable() {
@@ -40,7 +38,6 @@ public final class BettingPlus extends JavaPlugin {
     }
 
     private void loadListeners() {
-
     }
 
     private void loadManagers() {
@@ -48,6 +45,5 @@ public final class BettingPlus extends JavaPlugin {
     }
 
     private void loadObjects() {
-        bet = new Bet();
     }
 }

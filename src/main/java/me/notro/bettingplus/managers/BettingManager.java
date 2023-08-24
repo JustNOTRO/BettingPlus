@@ -1,12 +1,19 @@
 package me.notro.bettingplus.managers;
 
+import lombok.Getter;
+import lombok.NonNull;
 import me.notro.bettingplus.BettingPlus;
+import me.notro.bettingplus.objects.Bet;
 import me.notro.bettingplus.utils.Message;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.title.Title;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Random;
@@ -14,15 +21,17 @@ import java.util.UUID;
 
 public class BettingManager {
 
+    @Getter
+    private BukkitTask expiryTask;
+
     private final BettingPlus plugin;
-    private final HashMap<UUID, Integer> coins = new HashMap<>();
     private final HashMap<UUID, Long> requests = new HashMap<>();
 
     public BettingManager(BettingPlus plugin) {
         this.plugin = plugin;
     }
 
-    public void requestBet(Player requester, Player target) {
+    public void requestBet(@NonNull Player requester, @NonNull Player target ,@NonNull Bet bet) {
         if (requester == target) {
             requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou can't offer yourself a bet&7.")));
             return;
@@ -31,61 +40,106 @@ public class BettingManager {
         Component acceptMessage = sendClickableCommand("&7[&aAccept&7] ", "bet accept " + requester.getName());
         Component denyMessage = sendClickableCommand(" &7[&cDeny&7]", "bet deny " + requester.getName());
 
-        addRequest(requester);
+        addRequest(target);
         requester.sendMessage(Message.fixColor("&7Successfully sent a bet offer to &c" + target.getName() + "&7."));
-        target.sendMessage(Message.fixColor("&c" + requester.getName() + " &7offered a bet of &a" + plugin.getBet().getRequestedCash() + "$&7. ").append(acceptMessage).append(denyMessage));
+        target.sendMessage(Message.fixColor("&c" + requester.getName() + " &7offered a bet of &a" + bet.getRequestedCash() + "$&7. ").append(acceptMessage).append(denyMessage));
+        target.sendMessage(Message.fixColor("&cYou have 60 seconds to accept&7!"));
     }
 
-    private Component sendClickableCommand(String message, String command) {
-        TextComponent component = LegacyComponentSerializer.legacy('&').deserialize(message);
+    public void startExpiryCount(@NonNull Player requester, @NonNull Player target) {
+        expiryTask = new BukkitRunnable() {
+            int counter = 1;
+            @Override
+            public void run() {
+                if (counter <= 60) {
+                    counter++;
+                    return;
+                }
+
+                cancel();
+                removeRequest(target);
+                target.sendMessage(Message.getPrefix().append(Message.fixColor("&7Bet offer from &c" + requester.getName() + " &7has been expired.")));
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private void randomWinner(@NonNull Player requester, @NonNull Player target, @NonNull Bet bet) {
+        Random randomPlayers = new Random();
+        int randomIndex = randomPlayers.nextInt(2);
+
+        if (randomIndex == 0) {
+            addCoins(requester, bet.getRequestedCash() * 2);
+            requester.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + bet.getRequestedCash() + "$")));
+            target.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + bet.getRequestedCash() + "$")));
+            return;
+        }
+
+        addCoins(target, bet.getRequestedCash() * 2);
+        target.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + bet.getRequestedCash() + "$")));
+        requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + bet.getRequestedCash() + "$")));
+    }
+
+    public void startGame(@NonNull Player requester, @NonNull Player target ,@NonNull Bet bet) {
+        requester.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have accepted a bet offer from &c" + target.getName() + "&7.")));
+        target.sendMessage(Message.getPrefix().append(Message.fixColor("&c" + requester.getName() + " &7accepted your bet.")));
+
+        removeCoins(requester, bet.getRequestedCash());
+        removeCoins(target, bet.getRequestedCash());
+
+        new BukkitRunnable() {
+            int counter = 3;
+            @Override
+            public void run() {
+                if (counter >= 1) {
+                    requester.showTitle(Title.title(Message.fixColor("&cStarting in&7:"), Message.fixColor(counter + " second(s)!")));
+                    target.showTitle(Title.title(Message.fixColor("&cStarting in&7:"), Message.fixColor(counter + " second(s)!")));
+                    counter--;
+                    return;
+                }
+
+                cancel();
+                randomWinner(requester, target, bet);
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private Component sendClickableCommand(@NonNull String message, @NonNull String command) {
+        Component component = Message.fixColor(message);
         component = component.clickEvent(ClickEvent.clickEvent(ClickEvent.Action.RUN_COMMAND, "/" + command));
 
         return component;
     }
 
-    public void addCoins(Player target, int amount) {
-        coins.put(target.getUniqueId(), getCoins(target) + amount);
+    private void addCoins(@NonNull Player target, double amount) {
+        PersistentDataContainer data = target.getPersistentDataContainer();
+        NamespacedKey key = new NamespacedKey(plugin, "cash");
+
+        data.set(key, PersistentDataType.DOUBLE, getCoins(target) + amount);
     }
 
-    public void removeCoins(Player target, int amount) {
-        coins.put(target.getUniqueId(), getCoins(target) - amount);
+    private void removeCoins(@NonNull Player target, double amount) {
+        PersistentDataContainer data = target.getPersistentDataContainer();
+        NamespacedKey key = new NamespacedKey(plugin, "cash");
+
+        data.set(key, PersistentDataType.DOUBLE, getCoins(target) - amount);
     }
 
-    public int getCoins(Player target) {
-        return coins.getOrDefault(target.getUniqueId(), 500);
+    public double getCoins(@NonNull Player target) {
+        PersistentDataContainer data = target.getPersistentDataContainer();
+        NamespacedKey key = new NamespacedKey(plugin, "cash");
+
+        return data.getOrDefault(key, PersistentDataType.DOUBLE, 500D);
     }
 
-    public void addRequest(Player requester) {
-        requests.put(requester.getUniqueId(), System.currentTimeMillis());
+    public void addRequest(@NonNull Player target) {
+        requests.put(target.getUniqueId(), System.currentTimeMillis());
     }
 
-    public void removeRequest(Player requester) {
-        requests.remove(requester.getUniqueId());
+    public void removeRequest(@NonNull Player target) {
+        requests.remove(target.getUniqueId());
     }
 
-    public boolean hasRequests(Player target) {
+    public boolean hasRequests(@NonNull Player target) {
         return requests.containsKey(target.getUniqueId());
-    }
-
-    public boolean hasExpired(Player requester) {
-        return requests.get(requester.getUniqueId()) >= 20000;
-    }
-
-    public void randomWinner(Player requester, Player target) {
-        Random randomPlayers = new Random();
-        int randomIndex = randomPlayers.nextInt(2);
-
-        if (randomIndex == 0) {
-            addCoins(requester, plugin.getBet().getRequestedCash() * 2);
-            plugin.getConfig().set("betting-cash." + requester.getName() + ".coins", plugin.getBettingManager().getCoins(requester));
-            requester.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + plugin.getBet().getRequestedCash() * 2 + "$")));
-            target.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + plugin.getBet().getRequestedCash() + "$")));
-            return;
-        }
-
-        addCoins(target, plugin.getBet().getRequestedCash() * 2);
-        plugin.getConfig().set("betting-cash." + target.getName() + ".coins", plugin.getBettingManager().getCoins(target));
-        target.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + plugin.getBet().getRequestedCash() + "$")));
-        requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + plugin.getBet().getRequestedCash() + "$")));
     }
 }

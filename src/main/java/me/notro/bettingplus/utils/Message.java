@@ -12,7 +12,7 @@ public class Message {
             NO_PLAYER_EXISTENCE = fixColor("&cPlayer does not exist/online&7.");
 
     @Getter
-    private final static Component prefix = fixColor("&7[&3Betting&bPlus&7] &8>>> ");
+    private static final Component prefix = fixColor("&7[&3Betting&bPlus&7] &8>>> ");
 
 
     public static Component fixColor(String message) {
