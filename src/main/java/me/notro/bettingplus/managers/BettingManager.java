@@ -31,7 +31,10 @@ public class BettingManager {
     }
 
     public void requestBet(@NonNull Player requester, @NonNull Player target ,@NonNull Bet bet) {
-
+        if (requester == target) {
+            requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou can't offer yourself a bet&7.")));
+            return;
+        }
 
         Component acceptMessage = sendClickableCommand("&7[&aAccept&7] ", "bet accept " + requester.getName());
         Component denyMessage = sendClickableCommand(" &7[&cDeny&7]", "bet deny " + requester.getName());
