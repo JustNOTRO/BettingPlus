@@ -3,7 +3,7 @@ package me.notro.bettingplus.managers;
 import lombok.Getter;
 import lombok.NonNull;
 import me.notro.bettingplus.BettingPlus;
-import me.notro.bettingplus.objects.Bet;
+import me.notro.bettingplus.models.Bet;
 import me.notro.bettingplus.utils.Message;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -15,9 +15,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.HashMap;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class BettingManager {
 
@@ -25,17 +24,14 @@ public class BettingManager {
     private BukkitTask expiryTask;
 
     private final BettingPlus plugin;
-    private final HashMap<UUID, Long> requests = new HashMap<>();
+    private final List<UUID> requests = new ArrayList<>();
 
     public BettingManager(BettingPlus plugin) {
         this.plugin = plugin;
     }
 
     public void requestBet(@NonNull Player requester, @NonNull Player target ,@NonNull Bet bet) {
-        if (requester == target) {
-            requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou can't offer yourself a bet&7.")));
-            return;
-        }
+
 
         Component acceptMessage = sendClickableCommand("&7[&aAccept&7] ", "bet accept " + requester.getName());
         Component denyMessage = sendClickableCommand(" &7[&cDeny&7]", "bet deny " + requester.getName());
@@ -63,11 +59,11 @@ public class BettingManager {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
-    private void randomWinner(@NonNull Player requester, @NonNull Player target, @NonNull Bet bet) {
-        Random randomPlayers = new Random();
-        int randomIndex = randomPlayers.nextInt(2);
+    private void chooseRandomWinner(@NonNull Player requester, @NonNull Player target, @NonNull Bet bet) {
+        final int numberOfPlayers = 2;
+        final int chosenPlayerIndex = ThreadLocalRandom.current().nextInt(numberOfPlayers);
 
-        if (randomIndex == 0) {
+        if (chosenPlayerIndex == 0) {
             addCoins(requester, bet.getRequestedCash() * 2);
             requester.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + bet.getRequestedCash() + "$")));
             target.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + bet.getRequestedCash() + "$")));
@@ -98,7 +94,7 @@ public class BettingManager {
                 }
 
                 cancel();
-                randomWinner(requester, target, bet);
+                chooseRandomWinner(requester, target, bet);
             }
         }.runTaskTimer(plugin, 0L, 20L);
     }
@@ -132,7 +128,7 @@ public class BettingManager {
     }
 
     public void addRequest(@NonNull Player target) {
-        requests.put(target.getUniqueId(), System.currentTimeMillis());
+        requests.add(target.getUniqueId());
     }
 
     public void removeRequest(@NonNull Player target) {
@@ -140,6 +136,6 @@ public class BettingManager {
     }
 
     public boolean hasRequests(@NonNull Player target) {
-        return requests.containsKey(target.getUniqueId());
+        return requests.contains(target.getUniqueId());
     }
 }

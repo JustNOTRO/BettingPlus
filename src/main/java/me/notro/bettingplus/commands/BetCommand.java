@@ -1,7 +1,7 @@
 package me.notro.bettingplus.commands;
 
 import me.notro.bettingplus.BettingPlus;
-import me.notro.bettingplus.objects.Bet;
+import me.notro.bettingplus.models.Bet;
 import me.notro.bettingplus.utils.Message;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 public class BetCommand implements CommandExecutor {
 
     private final BettingPlus plugin;
-
     private Bet bet;
 
     public BetCommand(BettingPlus plugin) {
@@ -52,13 +51,12 @@ public class BetCommand implements CommandExecutor {
                     return false;
                 }
 
-                try {
-                    double amount = Double.parseDouble(args[2]);
-                    bet = new Bet(player.getUniqueId(), target.getUniqueId(), amount);
-                } catch (NumberFormatException exception) {
+                if (!isNumeric(args[2])) {
                     player.sendMessage(Message.getPrefix().append(Message.fixColor("&cAmount must be numeric&7.")));
                     return false;
                 }
+
+                bet = new Bet(player.getUniqueId(), target.getUniqueId(), Double.parseDouble(args[2]));
 
                 if (plugin.getBettingManager().getCoins(player) < bet.getRequestedCash()) {
                     player.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou don't have enough cash to perform that bet&7.")));
@@ -127,6 +125,16 @@ public class BetCommand implements CommandExecutor {
 
             default -> player.sendMessage(Message.getPrefix().append(Message.fixColor("&cStates: &7<offer/accept/deny>")));
         }
+        return true;
+    }
+
+    private boolean isNumeric(String number) {
+        try {
+            Double.parseDouble(number);
+        } catch (NumberFormatException exception) {
+            return false;
+        }
+
         return true;
     }
 }

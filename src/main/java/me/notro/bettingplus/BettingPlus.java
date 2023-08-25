@@ -9,13 +9,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 @Getter
 public final class BettingPlus extends JavaPlugin {
 
-    @Getter
-    private static BettingPlus instance;
     private BettingManager bettingManager;
 
     @Override
     public void onEnable() {
-        instance = this;
 
         loadCommands();
         loadListeners();

@@ -1,4 +1,4 @@
-package me.notro.bettingplus.objects;
+package me.notro.bettingplus.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
