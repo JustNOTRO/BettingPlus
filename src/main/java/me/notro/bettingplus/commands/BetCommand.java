@@ -97,6 +97,7 @@ public class BetCommand implements CommandExecutor {
 
                 plugin.getBettingManager().getExpiryTask().cancel();
                 plugin.getBettingManager().removeRequest(player);
+                plugin.getBettingManager().addQueue(player, target);
                 plugin.getBettingManager().startGame(player, target ,bet);
             }
 

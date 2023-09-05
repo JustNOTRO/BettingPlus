@@ -25,6 +25,7 @@ public class BettingManager {
 
     private final BettingPlus plugin;
     private final List<UUID> requests = new ArrayList<>();
+    private final List<UUID> queues = new ArrayList<>();
 
     public BettingManager(BettingPlus plugin) {
         this.plugin = plugin;
@@ -70,10 +71,12 @@ public class BettingManager {
             addCoins(requester, bet.getRequestedCash() * 2);
             requester.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + bet.getRequestedCash() + "$")));
             target.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + bet.getRequestedCash() + "$")));
+            removeQueue(requester, target);
             return;
         }
 
         addCoins(target, bet.getRequestedCash() * 2);
+        removeQueue(requester, target);
         target.sendMessage(Message.getPrefix().append(Message.fixColor("&7You have won &a" + bet.getRequestedCash() + "$")));
         requester.sendMessage(Message.getPrefix().append(Message.fixColor("&cYou have lost &a" + bet.getRequestedCash() + "$")));
     }
@@ -140,5 +143,15 @@ public class BettingManager {
 
     public boolean hasRequests(@NonNull Player target) {
         return requests.contains(target.getUniqueId());
+    }
+
+    public void addQueue(@NonNull Player requester, @NonNull Player target) {
+        queues.add(requester.getUniqueId());
+        queues.add(target.getUniqueId());
+    }
+
+    public void removeQueue(@NonNull Player requester, @NonNull Player target) {
+        queues.remove(requester.getUniqueId());
+        queues.remove(target.getUniqueId());
     }
 }
